@@ -1,3 +1,6 @@
+#include <stdlib.h>
+
+
 /*
 ** Common functions/types for both client and server
 */
