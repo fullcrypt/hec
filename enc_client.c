@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include "net.h"
+#include "common.h"
 
 #define SIZE 1024
 #define PORT 3000
@@ -63,15 +63,17 @@ int main(int argc, char** argv)
         err("connect");
     }
     /* data sending */
+    char buf[256];
+    scanf("%s", buf);
     ssize_t written_bytes = 0;
-    size_t bytes_to_send = sizeof(encrypted_data);
-    if ((written_bytes = send_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
+    size_t bytes_to_send = strlen(buf)+1;
+    if ((written_bytes = send_data(serv_fd, buf, bytes_to_send)) < 0) {
         err("sending data");
     } else if (written_bytes != bytes_to_send) {
         printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
         err("sending data");
     } else {
-        printf("%zu was successfully sent to server!\n", bytes_to_send);
+        printf("%zu bytes was successfully sent to server!\n", bytes_to_send);
     }
 
     close(serv_fd);

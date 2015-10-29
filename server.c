@@ -46,7 +46,7 @@ int main()
     }
     
     /* Signal handler for SIGCHLD */
-    //signal(SIGCHLD, sig_child);
+    signal(SIGCHLD, sig_child);
 
     /* server work */
     int client_fd = 0;
@@ -63,9 +63,14 @@ int main()
                 err("accept");
             }
         }
+        write(1, "new client\n", 11);
         if ((child_pid = fork()) == 0) { //child process
             close(serv_fd);
             //...client processing
+#define MAX 256
+            char buf[MAX];
+            read(client_fd, buf, MAX);
+            printf("%s\n", buf);
             exit(0);
         }
     }

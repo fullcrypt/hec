@@ -14,7 +14,7 @@ void help(char* prog)
 /* dummy error processing */
 void err(const char* err_name)
 {
-    printf("Error occured with %s\n", err_name);
+    printf("Error occured while %s\n", err_name);
     exit(EXIT_FAILURE);
 }
 
