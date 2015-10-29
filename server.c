@@ -12,7 +12,6 @@
 #define SIZE 1024
 #define SERV_PORT 3000
 
-
 /* SIGCHLD handling.
    Waitpid instead of wait to avoid zombie processes */
 void sig_child(int signo)
@@ -25,6 +24,39 @@ void sig_child(int signo)
     }
 }
 
+/* make it gomomorphic */
+void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data)
+{
+    int num = atoi(encrypted_data);
+    ++num;
+    snprintf(modified_data, sizeof(int), "%d", num);
+}
+
+void client_handle(int client_fd)
+{
+    //...client processing
+    char encrypted_data[SIZE];
+    char modified_data[SIZE];
+    if (read(client_fd, encrypted_data, SIZE) < 0) { //connection closed on client side
+        err("reading");
+        return;
+    }
+    printf("Get information from client. Making gomomorphic operation....");
+    GOMOMORPHIC_OPERATION(encrypted_data, modified_data);
+    printf("Done\n");
+
+    ssize_t written_bytes = 0;
+    size_t bytes_to_send = strlen(modified_data)+1;
+    if ((written_bytes = send_data(client_fd, modified_data, bytes_to_send)) < 0) {
+        err("sending data");
+    } else if (written_bytes != bytes_to_send) {
+        printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
+        err("sending data");
+    } else {
+        printf("%zu bytes was successfully received from client!\n", bytes_to_send);
+    }
+}
+
 int main()
 {
     /* server struct */
@@ -34,20 +66,14 @@ int main()
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     /* connection prepare */
-    int serv_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (serv_fd < 0) {
-        err("socket");
-    }
-    if (bind(serv_fd, (struct sockaddr*) &servaddr, sizeof(servaddr)) != 0) {
-        err("bind");
-    }
-    if (listen(serv_fd, 5) != 0) {
-        err("listen");
-    }
+    int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
+    Bind(serv_fd, &servaddr, sizeof(servaddr));
+    Listen(serv_fd, 5); //5 = backlog 
     
-    /* Signal handler for SIGCHLD */
+    /* Signal handler for SIGCHLD && SIGPIPE */
     signal(SIGCHLD, sig_child);
-
+    signal(SIGPIPE, SIG_IGN);
+    
     /* server work */
     int client_fd = 0;
     pid_t child_pid = 0;
@@ -63,14 +89,9 @@ int main()
                 err("accept");
             }
         }
-        write(1, "new client\n", 11);
         if ((child_pid = fork()) == 0) { //child process
             close(serv_fd);
-            //...client processing
-#define MAX 256
-            char buf[MAX];
-            read(client_fd, buf, MAX);
-            printf("%s\n", buf);
+            client_handle(client_fd);
             exit(0);
         }
     }

@@ -17,57 +17,39 @@
 #define SIZE 1024
 #define PORT 3000
 
-/* write N bytes to descriptor serv_fd */
-ssize_t send_data(int serv_fd, const void* ptr, size_t N)
-{
-    size_t bytes_num = N;
-    ssize_t written_bytes = 0;
-    const char* tmp_ptr = (char *) ptr;
 
-    while (bytes_num > 0) {
-        if ((written_bytes = write(serv_fd, tmp_ptr, bytes_num)) < 0) {
-            if (errno == EINTR) { //signal interruption
-                written_bytes = 0;
-                continue;
-            } else { //error occured
-                return -1;
-            }
-        }
-        bytes_num -= written_bytes;
-        tmp_ptr += written_bytes;
-    }
-    return written_bytes;
+/* Make it gomomorphic */
+char* FULLY_GOMOMORPHIC_ENCRYPT_DATA(char* data)
+{
+    return data;
 }
 
 int main(int argc, char** argv)
 {
-    /* data encrypting */
-    //..
-    void* encrypted_data = NULL;
-
-    /* connection preparing */
     if (argc != 2) {
         help(argv[0]);
     }
+
+    /* data encrypting */
+    char data[SIZE];
+    scanf("%s", data);
+    char* encrypted_data = eFULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
+    
+    /* connection preparing */
     struct sockaddr_in servaddr; //server struct
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
     inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
     
-    int serv_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (serv_fd < 0) {
-        err("socket");
-    }
-    if (connect(serv_fd, (struct sockaddr*) &servaddr, sizeof(servaddr)) < 0) {
-        err("connect");
-    }
-    /* data sending */
-    char buf[256];
-    scanf("%s", buf);
+    /* connecting to server */
+    int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
+    Connect(serv_fd, &servaddr, sizeof(servaddr));
+    
+    /* encrypting data sending */
     ssize_t written_bytes = 0;
-    size_t bytes_to_send = strlen(buf)+1;
-    if ((written_bytes = send_data(serv_fd, buf, bytes_to_send)) < 0) {
+    size_t bytes_to_send = strlen(encrypted_data)+1;
+    if ((written_bytes = send_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
         err("sending data");
     } else if (written_bytes != bytes_to_send) {
         printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
@@ -75,7 +57,13 @@ int main(int argc, char** argv)
     } else {
         printf("%zu bytes was successfully sent to server!\n", bytes_to_send);
     }
-
+    
+    /* get answer from server*/
+    char encrypted_result[SIZE];
+    if (read(serv_fd, encrypted_result, SIZE) < 0) { //connection closed by server
+        err("reading answer");
+    }
+    printf("get:%s\n", encrypted_result);
     close(serv_fd);
 
     return 0;
