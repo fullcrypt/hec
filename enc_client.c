@@ -33,7 +33,7 @@ int main(int argc, char** argv)
     /* data encrypting */
     char data[SIZE];
     scanf("%s", data);
-    char* encrypted_data = eFULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
+    char* encrypted_data = FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
     
     /* connection preparing */
     struct sockaddr_in servaddr; //server struct
