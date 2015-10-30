@@ -1,0 +1,4 @@
+Make sure to add both FHEW-master/cmd and FHEW-extensions/cmd directories to
+your $PATH
+
+Run tests with 1-bit/init.sh and 32-bit/init.sh
