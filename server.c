@@ -28,8 +28,10 @@ void sig_child(int signo)
 void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data)
 {
     int num = atoi(encrypted_data);
+    printf("NUM = %d\n", num);
     ++num;
-    snprintf(modified_data, sizeof(int), "%d", num);
+    snprintf(modified_data, SIZE, "%d", num);
+    printf("%s\n", modified_data);
 }
 
 void client_handle(int client_fd)
@@ -53,7 +55,7 @@ void client_handle(int client_fd)
         printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
         err("sending data");
     } else {
-        printf("%zu bytes was successfully received from client!\n", bytes_to_send);
+        printf("%zu bytes was successfully sent to client!\n", bytes_to_send);
     }
 }
 
