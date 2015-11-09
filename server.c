@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define SIZE 1024
+#define SIZE 64128 //size of encrypted int32
 #define SERV_PORT 3000
 
 /* SIGCHLD handling.
@@ -25,13 +25,13 @@ void sig_child(int signo)
 }
 
 /* make it gomomorphic */
-void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data)
+void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data, ssize_t N)
 {
-    int num = atoi(encrypted_data);
+    /*int num = atoi(encrypted_data);
     printf("NUM = %d\n", num);
     ++num;
     snprintf(modified_data, SIZE, "%d", num);
-    printf("%s\n", modified_data);
+    printf("%s\n", modified_data);*/
 }
 
 void client_handle(int client_fd)
@@ -39,17 +39,17 @@ void client_handle(int client_fd)
     //...client processing
     char encrypted_data[SIZE];
     char modified_data[SIZE];
-    if (read(client_fd, encrypted_data, SIZE) < 0) { //connection closed on client side
+    ssize_t bytes_to_send = 0;
+    if ((bytes_to_send = read(client_fd, encrypted_data, SIZE)) < 0) { //connection closed on client side
         err("reading");
         return;
     }
     printf("Get information from client. Making gomomorphic operation....");
-    GOMOMORPHIC_OPERATION(encrypted_data, modified_data);
+    GOMOMORPHIC_OPERATION(encrypted_data, modified_data, bytes_to_send);
     printf("Done\n");
 
     ssize_t written_bytes = 0;
-    size_t bytes_to_send = strlen(modified_data)+1;
-    if ((written_bytes = send_data(client_fd, modified_data, bytes_to_send)) < 0) {
+    if ((written_bytes = send_data(client_fd, /*modified data*/encrypted_data, bytes_to_send)) < 0) {
         err("sending data");
     } else if (written_bytes != bytes_to_send) {
         printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
