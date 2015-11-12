@@ -22,15 +22,20 @@
 
 
 LWE::SecretKey LWEsk;
+FHEW::EvalKey EK;
+
 /* Make it gomomorphic */
-char* FULLY_GOMOMORPHIC_ENCRYPT_DATA(char* data)
+void* FULLY_GOMOMORPHIC_ENCRYPT_DATA(char* data)
 {
     printf("Setting up FHEW \n");
     FHEW::Setup();
     printf("Generating secret key ... ");
     LWE::KeyGen(LWEsk);
     printf(" Done.\n");
-   
+    //printf("Generating evaluation key...this may take a while.");
+    //FHEW::KeyGen(&EK, LWEsk);
+    //printf("Done\n\n");
+
     /* encrypting */
     unsigned int message = atoll(data);
     int two_pow_31 = 1 << 31;
@@ -45,16 +50,19 @@ char* FULLY_GOMOMORPHIC_ENCRYPT_DATA(char* data)
     }
     printf("\n");
 
-    return (char*)ct;
+    return ct;
 }
 
 void get_answer(int fd, char* answer) 
 {
     unsigned get_bytes = 0;
-    if ((get_bytes = read(fd, answer, SIZE)) < 0) { //connection closed by server
+    if ((get_bytes = read_data(fd, answer, SIZE)) < 0) { //connection closed by server
         err("reading answer");
     }
     printf("%u bytes was received from server\n", get_bytes);
+    
+    /* decrypting data */ 
+    printf("Decrypting received data....");
     unsigned int m = 0;
     int temp;
     LWE::CipherText* ct = (LWE::CipherText*) answer;
@@ -66,12 +74,18 @@ void get_answer(int fd, char* answer)
             m = m << 1;
         }
     }
-    printf("\nGot from server: decimal = %d\n", m);
+    printf("Done\n");
+    printf("Got from server: decimal = %d\n", m);
+}
+
+void get_ack() 
+{
+    sleep(10);
 }
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) {
+    if (argc != 3) {
         help(argv[0]);
     }
 
@@ -79,7 +93,7 @@ int main(int argc, char** argv)
     char data[SIZE];
     printf("Put number = ");
     scanf("%s", data);
-    char* encrypted_data = FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
+    char* encrypted_data = (char*) FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
 
     /* connection preparing */
     struct sockaddr_in servaddr; //server struct
@@ -92,10 +106,18 @@ int main(int argc, char** argv)
     int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
     Connect(serv_fd, &servaddr, sizeof(servaddr));
     
-    /* encrypted data sending */
+    /* send eval key file */
+    printf("Sending eval key....");
+    send_file(argv[2], serv_fd);
+    printf("Done\n");
+    
+    /* ACK for eval key was received */
+    exit(0);
+
+    /* encrypted data sending */ 
     ssize_t written_bytes = 0;
     ssize_t bytes_to_send = sizeof(data);
-    if ((written_bytes = send_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
+    if ((written_bytes = write_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
         err("sending data");
     } else if (written_bytes != bytes_to_send) {
         printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
@@ -104,7 +126,7 @@ int main(int argc, char** argv)
         printf("%zu bytes was successfully sent to server!\n", bytes_to_send);
     }
     
-    /* get answer from server*/
+    /* get answer from server */
     char encrypted_result[SIZE];
     get_answer(serv_fd, encrypted_result);
     close(serv_fd);

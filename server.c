@@ -20,7 +20,7 @@ void sig_child(int signo)
     int stat;
 
     while ((pid = waitpid(-1, &stat, WNOHANG)) > 0) {
-        printf("child %d terminated\n", pid);
+        printf("\nchild %d terminated\n", pid);
     }
 }
 
@@ -34,13 +34,34 @@ void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data, ssize_t N)
     printf("%s\n", modified_data);*/
 }
 
+void get_file(int client_fd, char *eval_file)
+{
+    int eval_fd = open(eval_file, O_CREAT | O_WRONLY);
+    char buf[1024];
+    size_t read_portion = sizeof(buf);
+    ssize_t write_portion = 0;
+    while ((write_portion = read_data(client_fd, buf, read_portion))) {
+       if (write_data(eval_fd, buf, write_portion) < 0) {
+           err("write eval key");
+        }
+    }
+    close(eval_fd);
+}
+
+/* client processing */
 void client_handle(int client_fd)
 {
-    //...client processing
+    /* Receive eval key */
+    char eval_file_name[256];
+    snprintf(eval_file_name, sizeof(eval_file_name), "%d", getpid());
+    get_file(client_fd, eval_file_name);
+
+    /* Make gomomorphic operation using eval key received from the client */ 
     char encrypted_data[SIZE];
     char modified_data[SIZE];
     ssize_t bytes_to_send = 0;
-    if ((bytes_to_send = read(client_fd, encrypted_data, SIZE)) < 0) { //connection closed on client side
+
+    if ((bytes_to_send = read_data(client_fd, encrypted_data, SIZE)) < 0) { //connection closed on client side
         err("reading");
         return;
     }
@@ -49,14 +70,14 @@ void client_handle(int client_fd)
     printf("Done\n");
 
     ssize_t written_bytes = 0;
-    if ((written_bytes = send_data(client_fd, /*modified data*/encrypted_data, bytes_to_send)) < 0) {
+    if ((written_bytes = write_data(client_fd, encrypted_data, bytes_to_send)) < 0) {
         err("sending data");
     } else if (written_bytes != bytes_to_send) {
         printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
         err("sending data");
     } else {
         printf("%zu bytes was successfully sent to client!\n", bytes_to_send);
-    }
+    } 
 }
 
 int main()
