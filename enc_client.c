@@ -111,9 +111,7 @@ int main(int argc, char** argv)
     send_file(argv[2], serv_fd);
     printf("Done\n");
     
-    /* ACK for eval key was received */
-    exit(0);
-
+    shutdown(serv_fd, 0);
     /* encrypted data sending */ 
     ssize_t written_bytes = 0;
     ssize_t bytes_to_send = sizeof(data);

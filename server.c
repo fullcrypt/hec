@@ -40,8 +40,13 @@ void get_file(int client_fd, char *eval_file)
     char buf[1024];
     size_t read_portion = sizeof(buf);
     ssize_t write_portion = 0;
-    while ((write_portion = read_data(client_fd, buf, read_portion))) {
-       if (write_data(eval_fd, buf, write_portion) < 0) {
+    while (1) {
+        write_portion = read_data(client_fd, buf, read_portion);
+        if (!write_portion) {
+            break;
+        }
+        printf("write portion = %lu\n", write_portion);
+        if (write_data(eval_fd, buf, write_portion) < 0) {
            err("write eval key");
         }
     }
@@ -61,6 +66,7 @@ void client_handle(int client_fd)
     char modified_data[SIZE];
     ssize_t bytes_to_send = 0;
 
+    printf("got file\n");
     if ((bytes_to_send = read_data(client_fd, encrypted_data, SIZE)) < 0) { //connection closed on client side
         err("reading");
         return;
