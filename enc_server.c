@@ -34,25 +34,6 @@ void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data, ssize_t N)
     printf("%s\n", modified_data);*/
 }
 
-void get_file(int client_fd, char *eval_file)
-{
-    int eval_fd = open(eval_file, O_CREAT | O_WRONLY);
-    char buf[1024];
-    size_t read_portion = sizeof(buf);
-    ssize_t write_portion = 0;
-    while (1) {
-        write_portion = read_data(client_fd, buf, read_portion);
-        if (!write_portion) {
-            break;
-        }
-        printf("write portion = %lu\n", write_portion);
-        if (write_data(eval_fd, buf, write_portion) < 0) {
-           err("write eval key");
-        }
-    }
-    close(eval_fd);
-}
-
 /* client processing */
 void client_handle(int client_fd)
 {

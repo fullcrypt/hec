@@ -125,3 +125,21 @@ void send_file(const char* file, int serv_fd)
 }
 
 /* get file */
+void get_file(int client_fd, char *eval_file)
+{
+    int eval_fd = open(eval_file, O_CREAT | O_WRONLY);
+    char buf[1024];
+    size_t read_portion = sizeof(buf);
+    ssize_t write_portion = 0;
+    while (1) {
+        write_portion = read_data(client_fd, buf, read_portion);
+        if (!write_portion) {
+            break;
+        }
+        printf("write portion = %lu\n", write_portion);
+        if (write_data(eval_fd, buf, write_portion) < 0) {
+           err("write eval key");
+        }
+    }
+    close(eval_fd);
+}
