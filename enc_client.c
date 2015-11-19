@@ -78,10 +78,6 @@ void get_answer(int fd, char* answer)
     printf("Got from server: decimal = %d\n", m);
 }
 
-void get_ack() 
-{
-    sleep(10);
-}
 
 int main(int argc, char** argv)
 {
@@ -90,10 +86,10 @@ int main(int argc, char** argv)
     }
 
     /* data encrypting */
-    char data[SIZE];
-    printf("Put number = ");
-    scanf("%s", data);
-    char* encrypted_data = (char*) FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
+    //char data[SIZE];
+    //printf("Put number = ");
+    //scanf("%s", data);
+    //char* encrypted_data = (char*) FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
 
     /* connection preparing */
     struct sockaddr_in servaddr; //server struct
@@ -111,8 +107,7 @@ int main(int argc, char** argv)
     send_file(argv[2], serv_fd);
     printf("Done\n");
     
-    shutdown(serv_fd, 0);
-    /* encrypted data sending */ 
+    /* encrypted data sending  
     ssize_t written_bytes = 0;
     ssize_t bytes_to_send = sizeof(data);
     if ((written_bytes = write_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
@@ -124,9 +119,9 @@ int main(int argc, char** argv)
         printf("%zu bytes was successfully sent to server!\n", bytes_to_send);
     }
     
-    /* get answer from server */
+     get answer from server 
     char encrypted_result[SIZE];
-    get_answer(serv_fd, encrypted_result);
+    get_answer(serv_fd, encrypted_result);*/
     close(serv_fd);
 
     return 0;

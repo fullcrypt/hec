@@ -61,7 +61,7 @@ void client_handle(int client_fd)
     snprintf(eval_file_name, sizeof(eval_file_name), "%d", getpid());
     get_file(client_fd, eval_file_name);
 
-    /* Make gomomorphic operation using eval key received from the client */ 
+    /* Make gomomorphic operation using eval key received from the client  
     char encrypted_data[SIZE];
     char modified_data[SIZE];
     ssize_t bytes_to_send = 0;
@@ -71,7 +71,8 @@ void client_handle(int client_fd)
         err("reading");
         return;
     }
-    printf("Get information from client. Making gomomorphic operation....");
+    
+    printf("Got information from client. Making gomomorphic operation....");
     GOMOMORPHIC_OPERATION(encrypted_data, modified_data, bytes_to_send);
     printf("Done\n");
 
@@ -83,7 +84,7 @@ void client_handle(int client_fd)
         err("sending data");
     } else {
         printf("%zu bytes was successfully sent to client!\n", bytes_to_send);
-    } 
+    } */
 }
 
 int main()
