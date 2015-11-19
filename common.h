@@ -105,7 +105,7 @@ ssize_t read_data(int fd, void* ptr, size_t N)
     return N - bytes_num; //return N if all bytes were read
 }
 
-/* send file */
+/* sending file */
 void send_file(const char* file, int serv_fd)
 {
     int fd = open(file, O_RDONLY);
@@ -115,8 +115,12 @@ void send_file(const char* file, int serv_fd)
     char buf[1024];
     ssize_t send_portion = 0;
     ssize_t read_portion = sizeof(buf);
-    while ((send_portion = read_data(fd, buf, read_portion))) {
+    while (1) {
         fflush(stdin);
+        send_portion = read_data(fd, buf, read_portion);
+        if (!send_portion) {
+            break;
+        }
         if ((write_data(serv_fd, buf, send_portion)) < 0) {
             err("send_file:write_data");
         }
