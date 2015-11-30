@@ -11,6 +11,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <FHEW.h>
+#include <LWE.h>
+
+#define EVAL_SIZE	n * (BS_base - 1) * BS_exp * sizeof(FHEW::ct_FFT) + \
+					N * KS_base * KS_exp * sizeof(LWE::CipherTextQ)
+
 /*
 ** Common functions/types for both client and server
 */
@@ -80,7 +86,10 @@ ssize_t write_data(int fd, const void* ptr, size_t N)
     return written_bytes;
 }
 
-/* read N bytes from descriptor fd */
+/*
+ * read N bytes from descriptor fd 
+ * you can call this function
+ */
 ssize_t read_data(int fd, void* ptr, size_t N)
 {
     size_t  bytes_num = N; // bytes left to read
@@ -128,21 +137,33 @@ void send_file(const char* file, int serv_fd)
     close(fd);
 }
 
-/* get file */
+/* get file (brilliant comment from team lead)*/
+/*
+ * client _must_ send 8 bytes with filesize before file to
+ * avoid infinite loop.
+ */
+
 void get_file(int client_fd, char *eval_file)
 {
-    int eval_fd = open(eval_file, O_CREAT | O_WRONLY);
+    int eval_fd = open(eval_file, O_CREAT | O_WRONLY, 0644);
     char buf[1024];
-    size_t read_portion = sizeof(buf);
-    ssize_t write_portion = 0;
-    while (1) {
-        write_portion = read_data(client_fd, buf, read_portion);
+	int filesize;
+    int read_portion = sizeof(buf);
+    int write_portion = 0;
+
+	read(client_fd, &filesize, sizeof(int));
+
+    while (filesize) {
+        write_portion = read_data(client_fd, buf, (filesize > read_portion) ? read_portion: filesize);
+		printf("filesize = %d\n", filesize);
+		fflush(stdout);
+		filesize -= write_portion;
         if (!write_portion) {
             break;
         }
-        printf("write portion = %lu\n", write_portion);
+        printf("write portion = %d\n", write_portion);
         if (write_data(eval_fd, buf, write_portion) < 0) {
-           err("write eval key");
+            err("write eval key");
         }
     }
     close(eval_fd);

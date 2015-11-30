@@ -12,6 +12,8 @@
 #define SIZE 64128 //size of encrypted int32
 #define SERV_PORT 3000
 
+FHEW::EvalKey *EK;
+
 /* SIGCHLD handling.
    Waitpid instead of wait to avoid zombie processes */
 void sig_child(int signo)
@@ -37,12 +39,11 @@ void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data, ssize_t N)
 /* client processing */
 void client_handle(int client_fd)
 {
-    /* Receive eval key */
-    char eval_file_name[256];
-    snprintf(eval_file_name, sizeof(eval_file_name), "%d", getpid());
-    get_file(client_fd, eval_file_name);
+	EK = (FHEW::EvalKey *)malloc(EVAL_SIZE);
+	
+	read_data(client_fd, EK, EVAL_SIZE);
 
-    /* Make gomomorphic operation using eval key received from the client  
+	/* Make gomomorphic operation using eval key received from the client  */
     char encrypted_data[SIZE];
     char modified_data[SIZE];
     ssize_t bytes_to_send = 0;
@@ -65,7 +66,7 @@ void client_handle(int client_fd)
         err("sending data");
     } else {
         printf("%zu bytes was successfully sent to client!\n", bytes_to_send);
-    } */
+    } 
 }
 
 int main()
@@ -75,9 +76,12 @@ int main()
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(SERV_PORT);
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	int optval = 1;
 
     /* connection prepare */
     int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
+	if (setsockopt(serv_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int)) < 0)
+		perror("setsockopt:");
     Bind(serv_fd, &servaddr, sizeof(servaddr));
     Listen(serv_fd, 5); //5 = backlog 
     

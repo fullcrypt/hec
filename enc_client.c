@@ -32,9 +32,9 @@ void* FULLY_GOMOMORPHIC_ENCRYPT_DATA(char* data)
     printf("Generating secret key ... ");
     LWE::KeyGen(LWEsk);
     printf(" Done.\n");
-    //printf("Generating evaluation key...this may take a while.");
-    //FHEW::KeyGen(&EK, LWEsk);
-    //printf("Done\n\n");
+    printf("Generating evaluation key...this may take a while.");
+    FHEW::KeyGen(&EK, LWEsk);
+    printf("Done\n\n");
 
     /* encrypting */
     unsigned int message = atoll(data);
@@ -78,7 +78,6 @@ void get_answer(int fd, char* answer)
     printf("Got from server: decimal = %d\n", m);
 }
 
-
 int main(int argc, char** argv)
 {
     if (argc != 3) {
@@ -86,10 +85,11 @@ int main(int argc, char** argv)
     }
 
     /* data encrypting */
-    //char data[SIZE];
-    //printf("Put number = ");
-    //scanf("%s", data);
-    //char* encrypted_data = (char*) FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
+    char data[SIZE];
+    printf("Put number = ");
+    scanf("%s", data);
+	printf("size = %lu\n", EVAL_SIZE);
+    char* encrypted_data = (char*) FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
 
     /* connection preparing */
     struct sockaddr_in servaddr; //server struct
@@ -101,14 +101,11 @@ int main(int argc, char** argv)
     /* connecting to server */
     int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
     Connect(serv_fd, &servaddr, sizeof(servaddr));
-    
-    /* send eval key file */
-    printf("Sending eval key....");
-    send_file(argv[2], serv_fd);
-    printf("Done\n");
-    
-    /* encrypted data sending  
-    ssize_t written_bytes = 0;
+
+	write_data(serv_fd, &EK, EVAL_SIZE);
+
+    /* encrypted data sending */ 
+/*    ssize_t written_bytes = 0;
     ssize_t bytes_to_send = sizeof(data);
     if ((written_bytes = write_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
         err("sending data");
@@ -117,11 +114,11 @@ int main(int argc, char** argv)
         err("sending data");
     } else {
         printf("%zu bytes was successfully sent to server!\n", bytes_to_send);
-    }
+    }*/
     
-     get answer from server 
+    /* get answer from server */
     char encrypted_result[SIZE];
-    get_answer(serv_fd, encrypted_result);*/
+    get_answer(serv_fd, encrypted_result);
     close(serv_fd);
 
     return 0;
