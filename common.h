@@ -13,9 +13,43 @@
 #include <errno.h>
 #include <FHEW.h>
 #include <LWE.h>
+#include "./FHEW-extensions/libfhew-extensions/cmd/common.h"
 
 #define EVAL_SIZE	n * (BS_base - 1) * BS_exp * sizeof(FHEW::ct_FFT) + \
 					N * KS_base * KS_exp * sizeof(LWE::CipherTextQ)
+
+#define CANDIDATE_A_VOTE	0x00000001
+#define CANDIDATE_B_VOTE	0x00000100
+#define CANDIDATE_C_VOTE	0x00010000
+#define CANDIDATE_D_VOTE	0x01000000
+
+#define CANDIDATE_A_MASK    0x000000ff
+#define CANDIDATE_B_MASK    0x0000ff00
+#define CANDIDATE_C_MASK    0x00ff0000
+#define CANDIDATE_D_MASK    0xff000000
+
+#define CANDIDATE_A_SHIFT   0
+#define CANDIDATE_B_SHIFT   8
+#define CANDIDATE_C_SHIFT   16
+#define CANDIDATE_D_SHIFT   24
+
+
+enum client_vote {
+	VOTE_A,
+	VOTE_B,
+	VOTE_C,
+	VOTE_D,
+};
+
+enum client_request_types {
+	CLIENT_REQUEST_SEE_RESULTS,
+	CLIENT_REQUEST_VOTE
+};
+
+#pragma pack(1)
+struct client_request {
+	int type;
+};
 
 /*
 ** Common functions/types for both client and server
@@ -23,7 +57,7 @@
 
 void help(char* prog)
 {
-    printf("Usage: %s <ip_address> <eval_file>\n", prog);
+    printf("Use one of below:\n1)%s <ip_address> <secret_key_file>\n2)%s <ip_address> <secret_key_file> <eval_key_file>\n", prog, prog);
     exit(0);
 }
 
@@ -62,6 +96,22 @@ void Listen(int serv_fd, int backlog)
     if (listen(serv_fd, backlog) != 0) {
         err("listen");
     }
+}
+
+void read_eval_from_file(char *filename, FHEW::EvalKey *EK)
+{
+	int fd;
+	unsigned long long current = 0;
+	int number_read;
+
+	fd = open(filename, O_RDONLY);
+
+	while (current != EVAL_SIZE) {
+		number_read = read(fd, EK + current, 1024);
+		current += number_read;
+	}
+
+	close(fd);
 }
 
 /* write N bytes to descriptor fd */
@@ -139,7 +189,7 @@ void send_file(const char* file, int serv_fd)
 
 /* get file (brilliant comment from team lead)*/
 /*
- * client _must_ send 8 bytes with filesize before file to
+ * client _must_ send 4 bytes with filesize before file to
  * avoid infinite loop.
  */
 

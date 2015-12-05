@@ -36,7 +36,6 @@ int main(int argc, char *argv[]) {
 
   ct1 = LoadCipherText32(ict1_fn);
   ct2 = LoadCipherText32(ict2_fn);
-  ct3 = LoadCipherText32(ict3_fn);
 
   EK = LoadEvalKey(ek_fn);
 
@@ -46,7 +45,7 @@ int main(int argc, char *argv[]) {
   cout << "Calling HomSUM32" << endl;
   cout << "----------------------------------" << endl;
 
-  HomSUM32(ct_out1, ct_out2, *EK, ct1, ct2, *ct3);
+  HomSUM32(ct_out1, ct_out2, *EK, ct1, ct2);
 
   cout << "Finished" << endl;
 

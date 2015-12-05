@@ -8,11 +8,21 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pthread.h>
+#include "./FHEW-extensions/libfhew-extensions/FHEW-extensions.h"
 
 #define SIZE 64128 //size of encrypted int32
 #define SERV_PORT 3000
 
-FHEW::EvalKey *EK;
+pthread_mutex_t results_lock;
+pthread_mutex_t eval_lock;
+
+bool first_client = true;
+
+FHEW::EvalKey *EK = NULL;
+LWE::CipherText results[32];
+
+char *filename = "eval.txt_server";
 
 /* SIGCHLD handling.
    Waitpid instead of wait to avoid zombie processes */
@@ -26,57 +36,79 @@ void sig_child(int signo)
     }
 }
 
-/* make it gomomorphic */
-void GOMOMORPHIC_OPERATION(char* encrypted_data, char* modified_data, ssize_t N)
-{
-    /*int num = atoi(encrypted_data);
-    printf("NUM = %d\n", num);
-    ++num;
-    snprintf(modified_data, SIZE, "%d", num);
-    printf("%s\n", modified_data);*/
-}
-
 /* client processing */
-void client_handle(int client_fd)
+void *client_handle(void *arg)
 {
-	EK = (FHEW::EvalKey *)malloc(EVAL_SIZE);
+    unsigned long long __client_fd = (unsigned long long)arg;
+	int client_fd = __client_fd;
+	int answer;
+    LWE::CipherText ct[32];
+    LWE::CipherText tmp[32];
+    LWE::CipherText *carry_out;
+    struct client_request req;
+
+	pthread_mutex_lock(&eval_lock);
+	if (!EK) {
+		EK = (FHEW::EvalKey *)malloc(EVAL_SIZE);
+		if (!EK) {
+			perror("malloc evalkey:");
+		}
+	}
+	pthread_mutex_unlock(&eval_lock);
 	
-	read_data(client_fd, EK, EVAL_SIZE);
+	read_data(client_fd, &req, sizeof(struct client_request));
 
-	/* Make gomomorphic operation using eval key received from the client  */
-    char encrypted_data[SIZE];
-    char modified_data[SIZE];
-    ssize_t bytes_to_send = 0;
+	switch (req.type) {
+	case CLIENT_REQUEST_SEE_RESULTS:
+		pthread_mutex_lock(&results_lock);
+		write_data(client_fd, &results, sizeof(LWE::CipherText) * 32);
+		pthread_mutex_unlock(&results_lock);
+		break;
+	case CLIENT_REQUEST_VOTE:
+		pthread_mutex_lock(&eval_lock);
+		answer = (EK == NULL) ? 1 : 0;
+		write_data(client_fd, &answer, sizeof(int));
 
-    printf("got file\n");
-    if ((bytes_to_send = read_data(client_fd, encrypted_data, SIZE)) < 0) { //connection closed on client side
-        err("reading");
-        return;
-    }
-    
-    printf("Got information from client. Making gomomorphic operation....");
-    GOMOMORPHIC_OPERATION(encrypted_data, modified_data, bytes_to_send);
-    printf("Done\n");
+		if (answer) {
+			get_file(client_fd, filename);
+            EK = LoadEvalKey(filename);
+		}
+		pthread_mutex_unlock(&eval_lock);
 
-    ssize_t written_bytes = 0;
-    if ((written_bytes = write_data(client_fd, encrypted_data, bytes_to_send)) < 0) {
-        err("sending data");
-    } else if (written_bytes != bytes_to_send) {
-        printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
-        err("sending data");
-    } else {
-        printf("%zu bytes was successfully sent to client!\n", bytes_to_send);
-    } 
+        read_data(client_fd, ct, sizeof(LWE::CipherText) * 32);
+        pthread_mutex_lock(&results_lock);
+        if (first_client) {
+            memcpy(results, ct, sizeof(LWE::CipherText) * 32);
+            first_client = 0;
+        } else {
+            carry_out = new LWE::CipherText;
+            memcpy(tmp, results, sizeof(LWE::CipherText) * 32);
+            HomSUM32(results, carry_out, *EK, ct, tmp);
+        }
+        pthread_mutex_unlock(&results_lock);
+	}
 }
 
-int main()
+int main(int argc, char **argv)
 {
+    FHEW::Setup();
+	if (argc == 2) {
+        printf("Reading eval key...\n");
+        EK = LoadEvalKey(argv[1]);
+	}
+
+    long long __client_fd;
+
     /* server struct */
     struct sockaddr_in servaddr;
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(SERV_PORT);
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	int optval = 1;
+	pthread_t pthread = {0};
+
+	pthread_mutex_init(&results_lock, NULL);
+	pthread_mutex_init(&eval_lock, NULL);
 
     /* connection prepare */
     int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
@@ -104,13 +136,11 @@ int main()
                 err("accept");
             }
         }
-        if ((child_pid = fork()) == 0) { //child process
-            close(serv_fd);
-            client_handle(client_fd);
-            exit(0);
-        }
+
+        memset(&pthread, 0, sizeof(pthread_t));
+        __client_fd = client_fd;
+		pthread_create(&pthread, NULL, client_handle, (void *)__client_fd);
     }
     close(client_fd);
     return 0;
 }
-        

@@ -70,14 +70,23 @@ namespace FHEW {
  
   }
 
-  void HomSUM32(LWE::CipherText* sum, LWE::CipherText* carry_out, const EvalKey& EK, const LWE::CipherText* ct1, const LWE::CipherText* ct2, const LWE::CipherText& carry_in) {
+  void HomHALFSUM(LWE::CipherText *sum, LWE::CipherText *carry_out, const EvalKey& EK, const LWE::CipherText& ct1, const LWE::CipherText& ct2) {
+  LWE::CipherText u1, u2, u3, u4;
+  HomNAND(&u1, EK, ct1, ct2);
+  HomNAND(&u2, EK, ct1, u1);
+  HomNAND(&u3, EK, ct2, u1);
+  HomNAND(sum, EK, u2, u3);
+  HomNAND(carry_out, EK, u1, u1);
+  }
+
+  void HomSUM32(LWE::CipherText* sum, LWE::CipherText* carry_out, const EvalKey& EK, const LWE::CipherText* ct1, const LWE::CipherText* ct2) {
     LWE::CipherText* carry;
     
     carry = new LWE::CipherText[31];
 
     cout << "." << flush;
 
-    HomSUM(&sum[31], &carry[30], EK, ct1[31], ct2[31], carry_in);
+    HomHALFSUM(&sum[31], &carry[30], EK, ct1[31], ct2[31]);
 
     cout << "." << flush;
 

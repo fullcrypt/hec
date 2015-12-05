@@ -17,79 +17,97 @@
 #include <LWE.h>
 #include <iostream>
 #include <assert.h>
+#include "./FHEW-extensions/libfhew-extensions/FHEW-extensions.h"
 #define SIZE 64128
 #define PORT 3000
 
+LWE::SecretKey *LWEsk = NULL;
+FHEW::EvalKey *EK = NULL;
+char filename[255] = {'\0'};
+LWE::CipherText ct[32];
 
-LWE::SecretKey LWEsk;
-FHEW::EvalKey EK;
 
-/* Make it gomomorphic */
-void* FULLY_GOMOMORPHIC_ENCRYPT_DATA(char* data)
+void read_secret_from_file(char *filename)
 {
-    printf("Setting up FHEW \n");
-    FHEW::Setup();
-    printf("Generating secret key ... ");
-    LWE::KeyGen(LWEsk);
-    printf(" Done.\n");
-    printf("Generating evaluation key...this may take a while.");
-    FHEW::KeyGen(&EK, LWEsk);
-    printf("Done\n\n");
+	int fd;
+	int current = 0;
+	int number_read;
 
-    /* encrypting */
-    unsigned int message = atoll(data);
-    int two_pow_31 = 1 << 31;
-    int bit;
-    LWE::CipherText* ct = new LWE::CipherText[32];
-    printf("Binary: ");
-    for (int i = 0; i < 32; i++) {
-        bit = (message & two_pow_31) ? 1 : 0;
-        printf("%d", bit);
-        LWE::Encrypt(&ct[i], LWEsk, bit);
-        message = message << 1;
-    }
-    printf("\n");
+	fd = open(filename, O_RDONLY);
 
-    return ct;
+	while (current != sizeof(LWE::SecretKey)) {
+		number_read = read(fd, *LWEsk + current, sizeof(LWE::SecretKey) - current);
+		current += number_read;
+	}
+
+	close(fd);
 }
 
-void get_answer(int fd, char* answer) 
+void generate_eval()
 {
-    unsigned get_bytes = 0;
-    if ((get_bytes = read_data(fd, answer, SIZE)) < 0) { //connection closed by server
-        err("reading answer");
+	printf("Enter filename for secret key:\n");
+	scanf("%s", filename);
+
+	printf("Generating eval key\n");
+    FHEW::KeyGen(EK, *LWEsk);
+
+	SaveEvalKey(EK, filename);
+}
+
+void send_vote(int vote, int serv_fd)
+{
+    int two_pow_32 = 1 << 31;
+    int bit;
+   
+    for (int i = 0; i < 32; i++) {
+        bit = (vote & two_pow_32) ? 1 : 0;
+        LWE::Encrypt(&ct[i], *LWEsk, bit);
+        vote = vote << 1;
     }
-    printf("%u bytes was received from server\n", get_bytes);
-    
-    /* decrypting data */ 
-    printf("Decrypting received data....");
-    unsigned int m = 0;
+
+    write_data(serv_fd, ct, sizeof(LWE::CipherText) * 32);
+}
+
+void parse_results(LWE::CipherText *ct)
+{
+    unsigned int results = 0;
     int temp;
-    LWE::CipherText* ct = (LWE::CipherText*) answer;
-    for (int i = 0; i < 32; i++)
-    {
-        temp = LWE::Decrypt(LWEsk, ct[i]);
-        m += temp;
-        if (i != 31) {
-            m = m << 1;
-        }
+
+    for (int i = 0; i < 32; i++) {
+        temp = LWE::Decrypt(*LWEsk, ct[i]);
+        results += temp;
+        if (i != 31)
+            results = results << 1;
     }
-    printf("Done\n");
-    printf("Got from server: decimal = %d\n", m);
+
+    printf("Results:\n              \
+            Candidate a: %d\n       \
+            Candidate b: %d\n       \
+            Candidate c: %d\n       \
+            Candidate d: %d\n",
+            (results & CANDIDATE_A_MASK) >> CANDIDATE_A_SHIFT,
+            (results & CANDIDATE_B_MASK) >> CANDIDATE_B_SHIFT,
+            (results & CANDIDATE_C_MASK) >> CANDIDATE_C_SHIFT,
+            (results & CANDIDATE_D_MASK) >> CANDIDATE_D_SHIFT);
+
 }
 
 int main(int argc, char** argv)
 {
-    if (argc != 3) {
-        help(argv[0]);
-    }
+	int type;   
+	struct client_request req;
+	int need_to_send_eval;
+	int vote;
+	char c;
+	int secret_fd;
+    LWE::CipherText answer_from_server[32];
 
-    /* data encrypting */
+	if (argc != 3 && argc != 4) {
+		help(argv[0]);
+	}
+
+    /* Send you dreams to server */
     char data[SIZE];
-    printf("Put number = ");
-    scanf("%s", data);
-	printf("size = %lu\n", EVAL_SIZE);
-    char* encrypted_data = (char*) FULLY_GOMOMORPHIC_ENCRYPT_DATA(data);
 
     /* connection preparing */
     struct sockaddr_in servaddr; //server struct
@@ -97,29 +115,77 @@ int main(int argc, char** argv)
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(PORT);
     inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
-    
+
+	printf("Connecting to server...\n");
+
     /* connecting to server */
     int serv_fd = Socket(AF_INET, SOCK_STREAM, 0);
     Connect(serv_fd, &servaddr, sizeof(servaddr));
 
-	write_data(serv_fd, &EK, EVAL_SIZE);
+	FHEW::Setup();
 
-    /* encrypted data sending */ 
-/*    ssize_t written_bytes = 0;
-    ssize_t bytes_to_send = sizeof(data);
-    if ((written_bytes = write_data(serv_fd, encrypted_data, bytes_to_send)) < 0) {
-        err("sending data");
-    } else if (written_bytes != bytes_to_send) {
-        printf("%zd bytes were not sent!!! \n", bytes_to_send - written_bytes); 
-        err("sending data");
-    } else {
-        printf("%zu bytes was successfully sent to server!\n", bytes_to_send);
-    }*/
-    
-    /* get answer from server */
-    char encrypted_result[SIZE];
-    get_answer(serv_fd, encrypted_result);
-    close(serv_fd);
+	printf("Connected!!\nReading secret key\n"); 
+
+    LWEsk = LoadSecretKey(argv[2]);
+
+	if (argc == 4) {
+		printf("Reading eval key...\n");
+        EK = LoadEvalKey(argv[3]);
+	} else {
+        printf("Generating eval key...\n");
+        FHEW::KeyGen(EK, *LWEsk);
+	}
+	printf("Done.\n\n");
+
+	printf("What do you want???\n"
+		    "Vote[0], See results[1]:\n");
+    scanf("%d", &type);
+	if (type != 1 && type != 0) {
+		printf("Wrong input\n");
+		return 0;
+	}
+	switch(type) {
+	/* Vote */
+	case 0:
+		printf("To make your vote write 'a', 'b', 'c' or 'd':\n");
+		getchar();
+        c = getchar();
+		switch(c) {
+		case 'a':
+			vote = CANDIDATE_A_VOTE;
+			break;
+		case 'b':
+			vote = CANDIDATE_B_VOTE;
+			break;
+		case 'c':
+			vote = CANDIDATE_C_VOTE;
+			break;
+		case 'd':
+			vote = CANDIDATE_D_VOTE;
+			break;
+		default:
+			printf("Wrong input\n");
+			return 0;
+		}
+
+		req.type = CLIENT_REQUEST_VOTE;
+		write_data(serv_fd, &req, sizeof(struct client_request));
+		read_data(serv_fd, &need_to_send_eval, sizeof(int));
+		if (need_to_send_eval) {
+            printf("Sending eval key...\n");
+			send_file((argc == 4) ? argv[3] : filename, serv_fd);
+		}
+        printf("Sending vote...\n");
+		send_vote(vote, serv_fd);
+        printf("Done.\n");
+        break;
+	/* Results */
+	case 1:
+		req.type = CLIENT_REQUEST_SEE_RESULTS;
+		write_data(serv_fd, &req, sizeof(struct client_request));
+		read_data(serv_fd, &answer_from_server, sizeof(LWE::CipherText) * 32);
+        parse_results(answer_from_server);
+	}
 
     return 0;
 }

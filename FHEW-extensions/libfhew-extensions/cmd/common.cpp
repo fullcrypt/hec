@@ -34,10 +34,6 @@ LWE::SecretKey* LoadSecretKey(char* filepath) {
   return LWEsk;
 }
 
-
-
-
-
 void SaveEvalKey(const FHEW::EvalKey *EK, char* filepath) {
   FILE * f;
   f = fopen(filepath, "wb"); // wb -write binary
