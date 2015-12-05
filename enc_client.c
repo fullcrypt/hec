@@ -80,11 +80,11 @@ void parse_results(LWE::CipherText *ct)
             results = results << 1;
     }
 
-    printf("Results:\n              \
-            Candidate a: %d\n       \
-            Candidate b: %d\n       \
-            Candidate c: %d\n       \
-            Candidate d: %d\n",
+    printf("Results:\n"
+            "Candidate a: %d\n"
+            "Candidate b: %d\n"
+            "Candidate c: %d\n"
+            "Candidate d: %d\n",
             (results & CANDIDATE_A_MASK) >> CANDIDATE_A_SHIFT,
             (results & CANDIDATE_B_MASK) >> CANDIDATE_B_SHIFT,
             (results & CANDIDATE_C_MASK) >> CANDIDATE_C_SHIFT,
